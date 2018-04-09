@@ -135,6 +135,7 @@ kubectl config set-context default \
     --user=system:node:${HOSTNAME} \
     --kubeconfig=${HOSTNAME}.kubeconfig
 
+# set as default context
 kubectl config use-context default --kubeconfig=${HOSTNAME}.kubeconfig
 
 sudo mv ${HOSTNAME}-key.pem ${HOSTNAME}.pem /var/lib/kubelet/
