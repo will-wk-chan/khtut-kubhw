@@ -84,7 +84,7 @@ for i in 0 1 2; do
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet kubernetes \
     --tags kubernetes-the-hard-way,controller \
-    --metadata-from-file startup-script=
+    --metadata-from-file startup-script=bootstrap/kube-gcp-controllers.sh
 done
 
 ###################
@@ -102,7 +102,7 @@ for i in 0 1 2; do
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet kubernetes \
     --tags kubernetes-the-hard-way,worker  \
-    --metadata-from-file startup-script=
+    --metadata-from-file startup-script=bootstrap/kube-gcp-workers.sh
 done
 
 # verify
