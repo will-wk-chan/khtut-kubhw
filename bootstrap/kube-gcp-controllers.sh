@@ -15,7 +15,7 @@ sudo mv etcd-v3.2.11-linux-amd64/etcd* /usr/local/bin/
 # Configure
 sudo mkdir -p /etc/etcd /var/lib/etcd
 
-# (Requires Certs)
+# (Required Certs)
 gsutil cp gs://${GS_BUCKET}/ca.pem /tmp/
 gsutil cp gs://${GS_BUCKET}/ca-key.pem /tmp/
 gsutil cp gs://${GS_BUCKET}/kubernetes-key.pem /tmp/

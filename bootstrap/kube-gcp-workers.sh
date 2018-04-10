@@ -7,7 +7,7 @@
 GS_BUCKET=dev-bucket-ks
 # EDIT (above)
 
-# copy in ca cert
+### (Required Certs)
 gsutil cp gs://${GS_BUCKET}/ca.pem /tmp/
 gsutil cp gs://${GS_BUCKET}/ca-key.pem /tmp/
 gsutil cp gs://${GS_BUCKET}/ca-config.json /tmp/
@@ -24,6 +24,8 @@ sudo mv cfssljson_linux-amd64 /usr/local/bin/cfssljson
 
 # Download and Install Worker Binaries
 sudo apt-get -y install socat
+
+cd /root
 
 wget -q --show-progress --https-only --timestamping \
   https://github.com/containernetworking/plugins/releases/download/v0.6.0/cni-plugins-amd64-v0.6.0.tgz \
@@ -106,6 +108,7 @@ EXTERNAL_IP=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/
 INTERNAL_IP=$(ip addr | grep -Po '(?!(inet 127.\d.\d.1))(inet \K(\d{1,3}\.){3}\d{1,3})')
 
 # generate node certs
+
 cfssl gencert \
   -ca=/tmp/ca.pem \
   -ca-key=/tmp/ca-key.pem \
@@ -116,6 +119,7 @@ cfssl gencert \
 
 # Generate kubeconfig file
 ZONE_REGION=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/zone | grep -oE '[^/]+$' | grep -oE '\w+\-\w+')
+echo "Zone Region: $ZONE_REGION}"
 KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
   --region ${ZONE_REGION} \
   --format 'value(address)')

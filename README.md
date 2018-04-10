@@ -1,5 +1,6 @@
 # Notes and scripts from KH - kubernetes the hard way
 Link to [tutorial][df1]
+
 Notes and scripts that split up the shell code that must be run locally to setup the GCP infrastructure vs. bootstraping the Kubernetes instances.
 ## Setup GCP
 ```
@@ -101,43 +102,75 @@ for i in 0 1 2; do
     --private-network-ip 10.240.0.2${i} \
     --scopes compute-rw,storage-ro,service-management,service-control,logging-write,monitoring \
     --subnet kubernetes \
-    --tags kubernetes-the-hard-way,worker  \
+    --tags kubernetes-the-hard-way,worker \
     --metadata-from-file startup-script=bootstrap/kube-gcp-workers.sh
 done
 
 # verify
 gcloud compute instances list
 ```
-
 # Login to each controller instances, verify install
+```
 gcloud compute ssh controller-0
+# or
+gcloud compute ssh worker-0
 
 ## Verify
 ETCDCTL_API=3 etcdctl member list
 kubectl get componentstatuses
 
-# The Kubernetes Frontend Load Balancer
-[Kubernetes frond end loadbalancer setup][tut8]
+## Verify Nodes
+kubectl get nodes
 ```
-# Create the external load balancer network resources:
-gcloud compute target-pools create kubernetes-target-pool
-gcloud compute target-pools add-instances kubernetes-target-pool \
-  --instances controller-0,controller-1,controller-2
-KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
+
+# The Kubernetes Frontend Load Balancer
+[Kubernetes front end loadbalancer setup][tut8]
+```
+# Create the external load balancer network resources and forwarding rules, if they don't exist
+KUBERNETES_PUBLIC_ADDRESS_NAME=$(gcloud compute addresses describe kubernetes-the-hard-way \
   --region $(gcloud config get-value compute/region) \
   --format 'value(name)')
+gcloud compute target-pools create kubernetes-target-pool
 gcloud compute forwarding-rules create kubernetes-forwarding-rule \
-  --address ${KUBERNETES_PUBLIC_ADDRESS} \
+  --address ${KUBERNETES_PUBLIC_ADDRESS_NAME} \
   --ports 6443 \
   --region $(gcloud config get-value compute/region) \
   --target-pool kubernetes-target-pool
+
+# Add controllers to target pools
+gcloud compute target-pools add-instances kubernetes-target-pool \
+  --instances controller-0,controller-1,controller-2
   
 # Verify (when instances are running)
 KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
   --region $(gcloud config get-value compute/region) \
   --format 'value(address)')
+#   (get ca.pem from storage bucket if needed)
 curl --cacert ca.pem https://${KUBERNETES_PUBLIC_ADDRESS}:6443/version
 ```
+
+# Configuring kubectl for Remove Access
+```
+KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
+  --region $(gcloud config get-value compute/region) \
+  --format 'value(address)')
+kubectl config set-cluster kubernetes-the-hard-way \
+  --certificate-authority=ca.pem \
+  --embed-certs=true \
+  --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443
+kubectl config set-credentials admin \
+  --client-certificate=admin.pem \
+  --client-key=admin-key.pem
+kubectl config set-context kubernetes-the-hard-way \
+  --cluster=kubernetes-the-hard-way \
+  --user=admin
+
+kubectl config use-context kubernetes-the-hard-way
+
+# Verify 
+kubectl get componentstatuses
+```
+
 
    [df1]: <https://github.com/kelseyhightower/kubernetes-the-hard-way>
    [tut4]: <https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/04-certificate-authority.md#provisioning-a-ca-and-generating-tls-certificates>
