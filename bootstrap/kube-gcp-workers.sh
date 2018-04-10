@@ -9,6 +9,8 @@ GS_BUCKET=dev-bucket-ks
 
 # copy in ca cert
 gsutil cp gs://${GS_BUCKET}/ca.pem /tmp/
+gsutil cp gs://${GS_BUCKET}/ca-key.pem /tmp/
+gsutil cp gs://${GS_BUCKET}/ca-config.json /tmp/
 gsutil cp gs://${GS_BUCKET}/kube-proxy.kubeconfig /tmp/
 
 # install cfssl to generate certs later on
@@ -99,27 +101,26 @@ cat > ${HOSTNAME}-csr.json <<EOF
 }
 EOF
 
-EXTERNAL_IP=$(gcloud compute instances describe ${HOSTNAME} \
-  --format 'value(networkInterfaces[0].accessConfigs[0].natIP)')
+EXTERNAL_IP=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
 
-INTERNAL_IP=$(gcloud compute instances describe ${HOSTNAME} \
-  --format 'value(networkInterfaces[0].networkIP)')
+INTERNAL_IP=$(ip addr | grep -Po '(?!(inet 127.\d.\d.1))(inet \K(\d{1,3}\.){3}\d{1,3})')
 
 # generate node certs
 cfssl gencert \
-  -ca=ca.pem \
-  -ca-key=ca-key.pem \
-  -config=ca-config.json \
-  -hostname=${HOSTNAME},${EXTERNAL_IP},${INTERNAL_IP} \
+  -ca=/tmp/ca.pem \
+  -ca-key=/tmp/ca-key.pem \
+  -config=/tmp/ca-config.json \
+  -hostname=${instance},${EXTERNAL_IP},${INTERNAL_IP} \
   -profile=kubernetes \
   ${HOSTNAME}-csr.json | cfssljson -bare ${HOSTNAME}
 
 # Generate kubeconfig file
+ZONE_REGION=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/zone | grep -oE '[^/]+$' | grep -oE '\w+\-\w+')
 KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
-  --region $(gcloud config get-value compute/region) \
+  --region ${ZONE_REGION} \
   --format 'value(address)')
 kubectl config set-cluster kubernetes-the-hard-way \
-    --certificate-authority=ca.pem \
+    --certificate-authority=/tmp/ca.pem \
     --embed-certs=true \
     --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
     --kubeconfig=${HOSTNAME}.kubeconfig
@@ -199,8 +200,13 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# start worker' service
+# start worker service
 sudo mv kubelet.service kube-proxy.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable containerd cri-containerd kubelet kube-proxy
 sudo systemctl start containerd cri-containerd kubelet kube-proxy
+
+
+# Verify, login to controller node
+# gcloud compute ssh controller-0
+# kubectl get nodes
