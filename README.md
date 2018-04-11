@@ -3,7 +3,7 @@ Link to [tutorial][df1]
 
 Notes and scripts that split up the shell code that must be run locally to setup the GCP infrastructure vs. bootstraping the Kubernetes instances.
 
-# Actions on Instances
+# Actions on Instances / Forwarding rule
 Example gcloud snippets for reseting / deleting instances.
 
 ```
