@@ -12,14 +12,18 @@ gcloud compute instances reset controller-0 controller-1 controller-2
 gcloud -q compute instances delete \
   controller-0 controller-1 controller-2 \
   worker-0 worker-1 worker-2
+
+gcloud -q compute forwarding-rules delete kubernetes-forwarding-rule \
+  --region $(gcloud config get-value compute/region)
 ```
 
 # Quick Start
 Assuming everything else is configured and only the instances need to be re-launched, quick start of launching instances to verify
 
 1. [Launch instances](#Create-Instances)
-2. [Add Controllers to LB pool](#Add-controllers-to-target-pools)
+2. [Add forwarding rule](#Kubernetes-Forwarding-Rule)
 3. [Verify Remote Access](#Verify-Remote-Access)
+4. [Deploy DNS Cluster Add-on](#DNS-Add-On)
 
 # 
 
@@ -152,6 +156,9 @@ KUBERNETES_PUBLIC_ADDRESS_NAME=$(gcloud compute addresses describe kubernetes-th
   --region $(gcloud config get-value compute/region) \
   --format 'value(name)')
 gcloud compute target-pools create kubernetes-target-pool
+```
+## Kubernetes Forwarding Rule
+```
 gcloud compute forwarding-rules create kubernetes-forwarding-rule \
   --address ${KUBERNETES_PUBLIC_ADDRESS_NAME} \
   --ports 6443 \
@@ -212,6 +219,10 @@ kubectl get nodes
 
 # DNS Add On
 [Deploy the DNS Cluster Add-on](https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/12-dns-addon.md)
+
+```
+kubectl create -f https://storage.googleapis.com/kubernetes-the-hard-way/kube-dns.yaml
+```
 
 # Smoke Test
 [Lab time, tests to ensure Kubernetes cluster is functioning.](https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/13-smoke-test.md)
