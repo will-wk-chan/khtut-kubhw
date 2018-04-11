@@ -2,6 +2,27 @@
 Link to [tutorial][df1]
 
 Notes and scripts that split up the shell code that must be run locally to setup the GCP infrastructure vs. bootstraping the Kubernetes instances.
+
+# Actions on Instances
+Example gcloud snippets for reseting / deleting instances.
+
+```
+gcloud compute instances reset controller-0 controller-1 controller-2
+
+gcloud -q compute instances delete \
+  controller-0 controller-1 controller-2 \
+  worker-0 worker-1 worker-2
+```
+
+# Quick Start
+Assuming everything else is configured and only the instances need to be re-launched, quick start of launching instances to verify
+
+1. [Launch instances](#Create-Instances)
+2. [Add Controllers to LB pool](#Add-controllers-to-target-pools)
+3. [Verify Remote Access](#Verify-Remote-Access)
+
+# 
+
 ## Setup GCP
 ```
 # Create an environment variable for the correct distribution
@@ -66,9 +87,9 @@ gsutil mb gs://[BUCKET_NAME]/
 gsutil cp *.txt *.json *.csr *.yaml *.kubeconfig gs://[BUCKET_NAME]
 ```
 
-
-
 # Create Instances 
+If [Load Balancer](#The-Kubernetes-Frontend-Load-Balancer) and [Remote Access](#Configuring-kubectl-for-Remote-Access) is already setup previously, [add instantiated Controllers](#Add-controllers-to-target-pools) to pool and [verify remote access](#Verify-Remote-Access).
+
 ```
 ####################
 # Kubernetes MASTERS
@@ -136,8 +157,10 @@ gcloud compute forwarding-rules create kubernetes-forwarding-rule \
   --ports 6443 \
   --region $(gcloud config get-value compute/region) \
   --target-pool kubernetes-target-pool
+```
 
-# Add controllers to target pools
+## Add controllers to target pools
+```
 gcloud compute target-pools add-instances kubernetes-target-pool \
   --instances controller-0,controller-1,controller-2
   
@@ -149,7 +172,13 @@ KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-har
 curl --cacert ca.pem https://${KUBERNETES_PUBLIC_ADDRESS}:6443/version
 ```
 
-# Configuring kubectl for Remove Access
+# The kube-proxy Kubernetes Configuration File
+Set default proxy context, assuming the kube-proxy.kubeconfig is created, otherwise, create with these [instructions][tut5-kubeproxy]
+```
+kubectl config use-context default --kubeconfig=kube-proxy.kubeconfig
+```
+
+# Configuring kubectl for Remote Access
 ```
 KUBERNETES_PUBLIC_ADDRESS=$(gcloud compute addresses describe kubernetes-the-hard-way \
   --region $(gcloud config get-value compute/region) \
@@ -166,14 +195,32 @@ kubectl config set-context kubernetes-the-hard-way \
   --user=admin
 
 kubectl config use-context kubernetes-the-hard-way
-
-# Verify 
-kubectl get componentstatuses
 ```
+
+## Verify Remote Access
+
+```
+# Controller
+kubectl get componentstatuses
+
+# Nodes
+kubectl get nodes
+```
+
+# Provisioning Pod Network Routes
+[Pod Network Routes][tut11]
+
+# DNS Add On
+[Deploy the DNS Cluster Add-on](https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/12-dns-addon.md)
+
+# Smoke Test
+[Lab time, tests to ensure Kubernetes cluster is functioning.](https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/13-smoke-test.md)
 
 
    [df1]: <https://github.com/kelseyhightower/kubernetes-the-hard-way>
    [tut4]: <https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/04-certificate-authority.md#provisioning-a-ca-and-generating-tls-certificates>
+   [tut5-kubeproxy]:<https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/05-kubernetes-configuration-files.md#the-kube-proxy-kubernetes-configuration-file>
    [tut6]:[https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/06-data-encryption-keys.md]
    [tut8]: <https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/08-bootstrapping-kubernetes-controllers.md#the-kubernetes-frontend-load-balancer>
+   [tut11]: <https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/master/docs/11-pod-network-routes.md>
 

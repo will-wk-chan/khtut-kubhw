@@ -84,9 +84,11 @@ sudo mv 10-bridge.conf 99-loopback.conf /etc/cni/net.d/
 
 # Configure the Kubelet
 #   requires certs
-cat > ${HOSTNAME}-csr.json <<EOF
+LOCAL_HOSTNAME=$(hostname -s)
+
+cat > ${LOCAL_HOSTNAME}-csr.json <<EOF
 {
-  "CN": "system:node:${HOSTNAME}",
+  "CN": "system:node:${LOCAL_HOSTNAME}",
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -105,7 +107,9 @@ EOF
 
 EXTERNAL_IP=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip)
 
-INTERNAL_IP=$(ip addr | grep -Po '(?!(inet 127.\d.\d.1))(inet \K(\d{1,3}\.){3}\d{1,3})')
+INTERNAL_IP=$(curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
+
 
 # generate node certs
 
@@ -113,9 +117,9 @@ cfssl gencert \
   -ca=/tmp/ca.pem \
   -ca-key=/tmp/ca-key.pem \
   -config=/tmp/ca-config.json \
-  -hostname=${instance},${EXTERNAL_IP},${INTERNAL_IP} \
+  -hostname=${LOCAL_HOSTNAME},${EXTERNAL_IP},${INTERNAL_IP} \
   -profile=kubernetes \
-  ${HOSTNAME}-csr.json | cfssljson -bare ${HOSTNAME}
+  ${LOCAL_HOSTNAME}-csr.json | cfssljson -bare ${LOCAL_HOSTNAME}
 
 # Generate kubeconfig file
 ZONE_REGION=$(curl -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/instance/zone | grep -oE '[^/]+$' | grep -oE '\w+\-\w+')
@@ -127,25 +131,25 @@ kubectl config set-cluster kubernetes-the-hard-way \
     --certificate-authority=/tmp/ca.pem \
     --embed-certs=true \
     --server=https://${KUBERNETES_PUBLIC_ADDRESS}:6443 \
-    --kubeconfig=${HOSTNAME}.kubeconfig
+    --kubeconfig=${LOCAL_HOSTNAME}.kubeconfig
 
-kubectl config set-credentials system:node:${HOSTNAME} \
-    --client-certificate=${HOSTNAME}.pem \
-    --client-key=${HOSTNAME}-key.pem \
+kubectl config set-credentials system:node:${LOCAL_HOSTNAME} \
+    --client-certificate=${LOCAL_HOSTNAME}.pem \
+    --client-key=${LOCAL_HOSTNAME}-key.pem \
     --embed-certs=true \
-    --kubeconfig=${HOSTNAME}.kubeconfig
+    --kubeconfig=${LOCAL_HOSTNAME}.kubeconfig
 
 kubectl config set-context default \
     --cluster=kubernetes-the-hard-way \
-    --user=system:node:${HOSTNAME} \
-    --kubeconfig=${HOSTNAME}.kubeconfig
+    --user=system:node:${LOCAL_HOSTNAME} \
+    --kubeconfig=${LOCAL_HOSTNAME}.kubeconfig
 
 # set as default context
-kubectl config use-context default --kubeconfig=${HOSTNAME}.kubeconfig
+kubectl config use-context default --kubeconfig=${LOCAL_HOSTNAME}.kubeconfig
 
-sudo mv ${HOSTNAME}-key.pem ${HOSTNAME}.pem /var/lib/kubelet/
-sudo mv ${HOSTNAME}.kubeconfig /var/lib/kubelet/kubeconfig
-sudo mv /tmp/ca.pem /var/lib/kubernetes/
+sudo cp ${LOCAL_HOSTNAME}-key.pem ${LOCAL_HOSTNAME}.pem /var/lib/kubelet/
+sudo cp ${LOCAL_HOSTNAME}.kubeconfig /var/lib/kubelet/kubeconfig
+sudo cp /tmp/ca.pem /var/lib/kubernetes/
 
 # Create the kubelet.service systemd unit file:
 
@@ -173,8 +177,8 @@ ExecStart=/usr/local/bin/kubelet \\
   --pod-cidr=${POD_CIDR} \\
   --register-node=true \\
   --runtime-request-timeout=15m \\
-  --tls-cert-file=/var/lib/kubelet/${HOSTNAME}.pem \\
-  --tls-private-key-file=/var/lib/kubelet/${HOSTNAME}-key.pem \\
+  --tls-cert-file=/var/lib/kubelet/${LOCAL_HOSTNAME}.pem \\
+  --tls-private-key-file=/var/lib/kubelet/${LOCAL_HOSTNAME}-key.pem \\
   --v=2
 Restart=on-failure
 RestartSec=5
