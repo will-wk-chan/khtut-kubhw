@@ -20,10 +20,10 @@ gcloud -q compute forwarding-rules delete kubernetes-forwarding-rule \
 # Quick Start
 Assuming everything else is configured and only the instances need to be re-launched, quick start of launching instances to verify
 
-1. [Launch instances](#Create-Instances)
-2. [Add forwarding rule](#Kubernetes-Forwarding-Rule)
-3. [Verify Remote Access](#Verify-Remote-Access)
-4. [Deploy DNS Cluster Add-on](#DNS-Add-On)
+1. [Launch instances](#create-instances)
+2. [Add forwarding rule](#kubernetes-forwarding-rule)
+3. [Verify Remote Access](#verify-remote-access)
+4. [Deploy DNS Cluster Add-on](#dns-add-on)
 
 # 
 
@@ -222,6 +222,9 @@ kubectl get nodes
 
 ```
 kubectl create -f https://storage.googleapis.com/kubernetes-the-hard-way/kube-dns.yaml
+
+# Verify, list pods created by kube-dns
+kubectl get pods -l k8s-app=kube-dns -n kube-system
 ```
 
 # Smoke Test
